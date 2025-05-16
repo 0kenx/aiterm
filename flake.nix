@@ -83,13 +83,13 @@
             # Configure the build
             preBuild = ''
               # Clean up any conflicting files
-              rm -f at src/at
+              rm -f ait src/ait
             '';
-            
+
             # Ensure proper install and wrapper
             postInstall = ''
               # Wrap the installed script with proper environment
-              wrapProgram $out/bin/at \
+              wrapProgram $out/bin/ait \
                 --prefix PYTHONPATH : "$PYTHONPATH"
             '';
             
@@ -132,7 +132,7 @@
             
             shellHook = ''
               echo "AITerm development shell"
-              echo "Run 'uv run at' to test the application"
+              echo "Run 'uv run ait' to test the application"
               echo "Run 'nix build' to build the package"
             '';
           };
@@ -140,7 +140,7 @@
           # App definition for 'nix run'
           apps.default = {
             type = "app";
-            program = "${aiterm}/bin/at";
+            program = "${aiterm}/bin/ait";
           };
           
           # Make it available as an overlay

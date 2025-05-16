@@ -137,14 +137,14 @@ git clone https://github.com/0kenx/aiterm
 cd aiterm
 
 # Run directly with uv
-uv run at list all python files
+uv run ait list all python files
 ```
 
 ### Using pip
 
 ```bash
 pip install .
-at list all python files
+ait list all python files
 ```
 
 ## Usage
@@ -153,25 +153,25 @@ at list all python files
 
 ```bash
 # Use default model
-at find large files over 100MB
+ait find large files over 100MB
 
 # Specify a model
-at -m gpt-4o list docker containers
-at -m claude-3.7 show system resources
-at -m ollama compress this directory
+ait -m gpt-4o list docker containers
+ait -m claude-3.7 show system resources
+ait -m ollama compress this directory
 
 # Use test mode (no API required)
-at -m test show network connections
+ait -m test show network connections
 ```
 
 ### Non-Interactive Mode
 
 ```bash
 # Pipe input
-echo "list all python files" | at
+echo "list all python files" | ait
 
 # Use in scripts
-at --no-interactive find files modified today
+ait --no-interactive find files modified today
 ```
 
 ## Configuration
@@ -282,7 +282,7 @@ uv run tests/test_adapters.py
 The test mode provides mock responses for development:
 
 ```bash
-at -m test list all python files
+ait -m test list all python files
 ```
 
 ### Project Structure

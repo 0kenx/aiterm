@@ -17,7 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
-at = "aiterm.main:main"
+ait = "aiterm.main:main"
 
 [build-system]
 requires = ["setuptools>=45", "wheel"]

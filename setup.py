@@ -25,7 +25,7 @@ setup(
     },
     entry_points={
         "console_scripts": [
-            "at=aiterm.main:main",
+            "ait=aiterm.main:main",
         ],
     },
     install_requires=[
