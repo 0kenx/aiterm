@@ -7,98 +7,79 @@ from collections import OrderedDict
 
 
 def get_path_commands() -> List[str]:
-    """Get all executable commands available in PATH."""
-    commands = set()
-    
-    # Get all directories in PATH
-    path_dirs = os.environ.get('PATH', '').split(':')
-    
-    for directory in path_dirs:
-        if not directory or not os.path.isdir(directory):
-            continue
-            
-        try:
-            # List all files in the directory
-            for filename in os.listdir(directory):
-                filepath = os.path.join(directory, filename)
-                # Check if it's an executable file
-                if os.path.isfile(filepath) and os.access(filepath, os.X_OK):
-                    commands.add(filename)
-        except (OSError, PermissionError):
-            # Skip directories we can't read
-            continue
-    
-    return sorted(list(commands))
+    """Get all executable commands available in PATH using shell."""
+    try:
+        # Use shell to find all executables in PATH
+        # This command lists all executable files in PATH directories
+        result = subprocess.run(
+            ['sh', '-c', 'export LC_ALL=C; for dir in ${PATH//:/ }; do ls -1 "$dir" 2>/dev/null || true; done | sort -u'],
+            capture_output=True,
+            text=True,
+            timeout=3
+        )
+
+        if result.returncode == 0 and result.stdout:
+            commands = [cmd.strip() for cmd in result.stdout.splitlines() if cmd.strip()]
+            return commands
+    except Exception:
+        pass
+
+    # Fallback to empty list if command fails
+    return []
 
 
 def get_shell_history(history_size: int = 500) -> Tuple[List[str], List[str]]:
-    """Get shell history from various sources.
-    
+    """Get shell history using the history command from the current shell.
+
     Returns:
         tuple: (recent_commands, unique_older_commands)
     """
     all_commands = []
-    
-    # Try different history sources
-    history_files = [
-        Path("~/.bash_history").expanduser(),
-        Path("~/.zsh_history").expanduser(),
-        Path("~/.history").expanduser(),
-    ]
-    
-    for history_file in history_files:
-        if history_file.exists():
-            try:
-                with open(history_file, 'r', errors='ignore') as f:
-                    # Read lines and handle different formats
-                    for line in f:
-                        line = line.strip()
-                        if not line:
-                            continue
-                            
-                        # Handle zsh format (: timestamp:0;command)
-                        if line.startswith(': ') and ';' in line:
-                            parts = line.split(';', 1)
-                            if len(parts) > 1:
-                                line = parts[1].strip()
-                        
-                        # Skip common non-commands
-                        if line and not line.startswith('#'):
-                            all_commands.append(line)
-                            
-            except Exception:
-                continue
-    
-    # Also try to get current shell's history if available
+
+    # Get current shell
+    shell = os.environ.get('SHELL', '/bin/sh')
+
     try:
-        # Try bash history command
-        result = subprocess.run(['bash', '-c', 'history'], 
-                              capture_output=True, text=True, timeout=1)
-        if result.returncode == 0:
+        # Use history command from the current shell with interactive flag
+        result = subprocess.run(
+            [shell, '-i', '-c', 'history'],
+            capture_output=True,
+            text=True,
+            timeout=3,
+            env=os.environ
+        )
+
+        if result.returncode == 0 and result.stdout:
+            # Parse history output - most shells have format like "  123  command"
             for line in result.stdout.splitlines():
-                # History format: "  123  command"
-                parts = line.strip().split(None, 1)
-                if len(parts) > 1 and parts[0].isdigit():
-                    all_commands.append(parts[1])
+                line = line.strip()
+                if line:
+                    # Remove line numbers if present
+                    parts = line.split(None, 1)
+                    if len(parts) > 1 and parts[0].isdigit():
+                        all_commands.append(parts[1])
+                    else:
+                        # Some shells don't have line numbers
+                        all_commands.append(line)
     except Exception:
         pass
-    
+
     # Reverse to get most recent first
     all_commands.reverse()
-    
+
     # Split into recent and older unique commands
     recent_commands = all_commands[:history_size]
-    
+
     # Get unique commands from older history
     recent_set = set(recent_commands)
     older_unique = []
     seen = set()
-    
+
     for cmd in all_commands[history_size:]:
         if cmd not in recent_set and cmd not in seen:
             older_unique.append(cmd)
             seen.add(cmd)
-    
+
     return recent_commands, older_unique
 
 

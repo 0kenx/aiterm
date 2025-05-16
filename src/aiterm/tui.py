@@ -45,9 +45,12 @@ class TUI:
                     'description': s.description
                 })
 
-        # Compact display
+        # Compact display with descriptions
         for i, suggestion in enumerate(normalized_suggestions, 1):
-            self.console.print(f"[{i}] [green]{suggestion['command']}[/green]")
+            command_line = f"[{i}] [green]{suggestion['command']}[/green]"
+            if 'description' in suggestion and suggestion['description']:
+                command_line += f" - [dim]{suggestion['description']}[/dim]"
+            self.console.print(command_line)
 
         choice = Prompt.ask(
             "Select [[cyan]q[/cyan]uit/type text to continue] [[cyan]1[/cyan]]",
