@@ -12,13 +12,13 @@ class OpenAIAdapter(BaseLLMAdapter):
         super().__init__(config)
         self.api_key = config.get('api_key')
         self.model = config.get('model', 'gpt-4o')
-        self.temperature = config.get('temperature', 0.7)
-        self.max_tokens = config.get('max_tokens', None)
-        self.top_p = config.get('top_p', None)
-        self.frequency_penalty = config.get('frequency_penalty', None)
-        self.presence_penalty = config.get('presence_penalty', None)
-        self.seed = config.get('seed', None)
-        
+        self.temperature = config.get('temperature')  # No default - use None if not specified
+        self.max_tokens = config.get('max_tokens')
+        self.top_p = config.get('top_p')
+        self.frequency_penalty = config.get('frequency_penalty')
+        self.presence_penalty = config.get('presence_penalty')
+        self.seed = config.get('seed')
+
         # Initialize async client
         self.client = AsyncOpenAI(api_key=self.api_key)
     
@@ -42,10 +42,15 @@ class OpenAIAdapter(BaseLLMAdapter):
         params = {
             "model": self.model,
             "messages": messages,
-            "temperature": temperature or self.temperature,
         }
-        
-        # Add optional parameters
+
+        # Add temperature if specified
+        if temperature is not None:
+            params["temperature"] = temperature
+        elif self.temperature is not None:
+            params["temperature"] = self.temperature
+
+        # Add optional parameters only if they're set
         if self.max_tokens is not None:
             params["max_tokens"] = self.max_tokens
         if self.top_p is not None:

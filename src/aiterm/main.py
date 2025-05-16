@@ -108,20 +108,17 @@ def build_model_list(config: Config, user_model: Optional[str] = None) -> List[T
 
         return None
 
-    # Add user-specified model first if provided
+    # If user specified a model, use only that model
     if user_model:
         api_key = get_api_key_for_model(user_model)
         if api_key:
             models_to_try.append((user_model, api_key))
-            seen_models.add(user_model)
-
-    # Add models from default list
-    for model_name in config.default_models:
-        if model_name not in seen_models:
+    else:
+        # Add models from default list
+        for model_name in config.default_models:
             api_key = get_api_key_for_model(model_name)
             if api_key:
                 models_to_try.append((model_name, api_key))
-                seen_models.add(model_name)
 
     return models_to_try
 
@@ -213,7 +210,7 @@ def parse_text_response(response: str) -> List[dict]:
 
 
 async def process_query(config: Config, tui: TUI, adapter: BaseLLMAdapter, executor: CommandExecutor,
-                       model_name: str, query: str, conversation_history: List[dict] = None):
+                       model_name: str, query: str, conversation_history: List[dict] = None, debug: bool = False):
     """Process a single query with the LLM."""
 
     if conversation_history is None:
@@ -262,7 +259,19 @@ async def process_query(config: Config, tui: TUI, adapter: BaseLLMAdapter, execu
     extra_context = None
     exec_results = []
     try:
+        # Debug: Log needs_context request
+        if debug:
+            tui.console.print(f"\n[cyan]Debug: Context analysis for {model_name}[/cyan]")
+            tui.console.print(f"Query: {query}")
+
         needs_context, context_commands = await adapter.needs_context(query)
+
+        # Debug: Log needs_context response
+        if debug:
+            tui.console.print(f"Needs context: {needs_context}")
+            if context_commands:
+                tui.console.print(f"Context commands: {context_commands}")
+
         if needs_context and context_commands:
             context_parts = []
             for cmd in context_commands:
@@ -281,14 +290,14 @@ async def process_query(config: Config, tui: TUI, adapter: BaseLLMAdapter, execu
 
     # Build structured prompt
     # Convert conversation history to the expected format
-    conv_history = None
+    conv_history = []
     if conversation_history:
-        conv_history = []
         for entry in conversation_history:
             if isinstance(entry, dict):
                 conv_history.append(f"{entry['role']}: {entry['content']}")
             else:
                 conv_history.append(str(entry))
+
 
     prompt = build_structured_prompt(
         user_input=query,
@@ -296,12 +305,26 @@ async def process_query(config: Config, tui: TUI, adapter: BaseLLMAdapter, execu
         available_commands=available_commands,
         command_history={'command_history': command_history} if command_history else None,
         exec_results={item['command']: item['output'] for item in exec_results} if exec_results else None,
-        conversation_history=conv_history
+        conversation_history=conv_history if conversation_history else None
     )
+
+    # Debug: Log prompt
+    if debug:
+        tui.console.print(f"\n[cyan]Debug: LLM Prompt for {model_name}[/cyan]")
+        tui.console.print("[dim]" + "-" * 60 + "[/dim]")
+        tui.console.print(prompt)
+        tui.console.print("[dim]" + "-" * 60 + "[/dim]")
 
     # Generate response
     # tui.status(f"Asking {model_name} for suggestions...")
     response = await adapter.generate(prompt)
+
+    # Debug: Log response
+    if debug:
+        tui.console.print(f"\n[cyan]Debug: LLM Response from {model_name}[/cyan]")
+        tui.console.print("[dim]" + "-" * 60 + "[/dim]")
+        tui.console.print(response)
+        tui.console.print("[dim]" + "-" * 60 + "[/dim]")
 
     # Parse response
     suggestions = parse_json_response(response)
@@ -323,7 +346,7 @@ async def process_query(config: Config, tui: TUI, adapter: BaseLLMAdapter, execu
 
         # Process continuation
         return await process_query(config, tui, adapter, executor, model_name,
-                                 continuation, conversation_history)
+                                 continuation, conversation_history, debug)
 
     # If user quit (selected is None and continuation is None), return special value
     if selected is None and continuation is None:
@@ -334,8 +357,9 @@ async def process_query(config: Config, tui: TUI, adapter: BaseLLMAdapter, execu
 
 @click.command()
 @click.option('-m', '--model', default=None, help='Model to use (e.g., gpt4, claude, my_model)')
+@click.option('--debug', is_flag=True, help='Enable debug output')
 @click.argument('description', nargs=-1)
-def main(model: Optional[str], description):
+def main(model: Optional[str], debug: bool, description):
     """AI Terminal Assistant - Let AI help you with terminal commands."""
     # Load configuration
     config = Config.load()
@@ -354,6 +378,20 @@ def main(model: Optional[str], description):
 
     # Build the list of models to try
     models_to_try = build_model_list(config, model)
+
+    # Debug: Show model order and masked API keys
+    if debug:
+        tui.console.print("\n[cyan]Debug: Model order and API keys[/cyan]")
+        for i, (model_name, api_key) in enumerate(models_to_try, 1):
+            if api_key:
+                # Mask API key showing first 3 and last 3 chars
+                if len(api_key) > 10:
+                    masked_key = f"{api_key[:3]}...{api_key[-3:]}"
+                else:
+                    masked_key = api_key[:3] + "..."
+            else:
+                masked_key = "None"
+            tui.console.print(f"  {i}. [yellow]{model_name}[/yellow]: {masked_key}")
 
     if not models_to_try:
         tui.error("No models with valid API keys found")
@@ -377,7 +415,7 @@ def main(model: Optional[str], description):
 
                 # Quick test query
                 selected = loop.run_until_complete(
-                    process_query(config, tui, adapter, executor, model_name, description_text)
+                    process_query(config, tui, adapter, executor, model_name, description_text, debug=debug)
                 )
 
                 if selected == 'QUIT':
@@ -396,9 +434,10 @@ def main(model: Optional[str], description):
 
     # If no model worked, show errors and enter setup mode
     if not successful_model:
-        tui.console.print("\n[yellow]Tried models:[/yellow]")
-        for error in errors:
-            tui.console.print(f"  [dim]• {error}[/dim]")
+        if debug:
+            tui.console.print("\n[yellow]Tried models:[/yellow]")
+            for error in errors:
+                tui.console.print(f"  [dim]• {error}[/dim]")
         setup_mode(config, tui)
         return
 

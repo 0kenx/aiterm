@@ -71,17 +71,17 @@ def build_structured_prompt(user_input: str,
             cmd for cmd in available_commands
             if not should_ignore_command(cmd)
         ]
-        commands_str = ', '.join(filtered_commands[:1000])  # Limit for context
+        commands_str = ' '.join(filtered_commands[:2000])  # Limit for context
         parts.append(f"<available_commands>\n{commands_str}\n</available_commands>")
 
     # Command history
     if command_history:
         history_parts = []
         if 'recent_commands' in command_history:
-            recent = command_history['recent_commands'][:20]
+            recent = command_history['recent_commands'][:500]
             history_parts.append("Recent commands:\n" + "\n".join(recent))
         if 'command_history' in command_history:
-            older = command_history['command_history'][:20]
+            older = command_history['command_history'][:500]
             history_parts.append("Frequently used:\n" + "\n".join(older))
 
         if history_parts:
@@ -94,15 +94,18 @@ def build_structured_prompt(user_input: str,
 
     # Conversation history (for multi-turn)
     if conversation_history:
-        for i, turn in enumerate(conversation_history):
-            if turn.startswith("User:"):
+        for turn in conversation_history:
+            if turn.startswith("user:"):
                 parts.append(f"<user>\n{turn[5:].strip()}\n</user>")
-            elif turn.startswith("[") and "]" in turn:
-                # Previous suggestions
-                parts.append(f"<assistant>\n{turn}\n</assistant>")
+            elif turn.startswith("assistant:"):
+                parts.append(f"<assistant>\n{turn[10:].strip()}\n</assistant>")
             else:
-                # Initial query
+                # Handle other formats
                 parts.append(f"<user>\n{turn}\n</user>")
+
+        # If the last turn isn't the current input, add it
+        if not conversation_history or not conversation_history[-1].endswith(user_input):
+            parts.append(f"<user>\n{user_input}\n</user>")
     else:
         # Current user input
         parts.append(f"<user>\n{user_input}\n</user>")

@@ -12,11 +12,11 @@ class AnthropicAdapter(BaseLLMAdapter):
         super().__init__(config)
         self.api_key = config.get('api_key')
         self.model = config.get('model', 'claude-3-sonnet-20240229')
-        self.temperature = config.get('temperature', 0.7)
-        self.max_tokens = config.get('max_tokens', 4096)
-        self.top_p = config.get('top_p', None)
-        self.top_k = config.get('top_k', None)
-        
+        self.temperature = config.get('temperature')  # No default - use None if not specified
+        self.max_tokens = config.get('max_tokens', 4096)  # Keep default for Claude's requirement
+        self.top_p = config.get('top_p')
+        self.top_k = config.get('top_k')
+
         # Initialize async client
         self.client = AsyncAnthropic(api_key=self.api_key)
     
@@ -34,11 +34,16 @@ class AnthropicAdapter(BaseLLMAdapter):
         params = {
             "model": self.model,
             "messages": [{"role": "user", "content": prompt}],
-            "temperature": temperature or self.temperature,
             "max_tokens": self.max_tokens,
         }
-        
-        # Add optional parameters
+
+        # Add temperature if specified
+        if temperature is not None:
+            params["temperature"] = temperature
+        elif self.temperature is not None:
+            params["temperature"] = self.temperature
+
+        # Add optional parameters only if they're set
         if self.top_p is not None:
             params["top_p"] = self.top_p
         if self.top_k is not None:
