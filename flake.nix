@@ -76,6 +76,8 @@
               requests
               rich
               aiohttp
+              mmh3
+              bitarray
             ];
             
             # Configure the build
