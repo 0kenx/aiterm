@@ -312,7 +312,9 @@ async def process_query(config: Config, tui: TUI, adapter: BaseLLMAdapter, execu
         available_commands=available_commands,
         command_history={'command_history': command_history} if command_history else None,
         exec_results={item['command']: item['output'] for item in exec_results} if exec_results else None,
-        conversation_history=conv_history if conversation_history else None
+        conversation_history=conv_history if conversation_history else None,
+        available_commands_limit=config.available_commands_limit,
+        history_context_size=config.history_context_size
     )
 
     # Debug: Log prompt

@@ -56,11 +56,13 @@ class ProviderConfig:
 @dataclass
 class Config:
     """Main configuration class with new structure."""
-    default_models: List[str] = field(default_factory=lambda: ["gpt4", "claude", "ollama"])
-    allowed_commands: List[str] = field(default_factory=lambda: ["pwd", "ls", "echo", "date"])
+    default_models: List[str] = field(default_factory=lambda: DEFAULT_CONFIG['default_models'])
+    allowed_commands: List[str] = field(default_factory=lambda: DEFAULT_CONFIG['allowed_commands'])
     providers: Dict[str, ProviderConfig] = field(default_factory=dict)
     models: Dict[str, ModelConfig] = field(default_factory=dict)
-    history_file: str = "~/.local/share/aiterm/history.json"
+    history_file: str = field(default_factory=lambda: DEFAULT_CONFIG['history_file'])
+    history_context_size: int = field(default_factory=lambda: DEFAULT_CONFIG['history_context_size'])
+    available_commands_limit: int = field(default_factory=lambda: DEFAULT_CONFIG['available_commands_limit'])
     
     @classmethod
     def load(cls) -> 'Config':
@@ -91,11 +93,13 @@ class Config:
                     models[name] = ModelConfig.from_dict(model_data)
         
         return cls(
-            default_models=data.get('default_models', ["gpt4", "claude", "ollama"]),
+            default_models=data.get('default_models', DEFAULT_CONFIG['default_models']),
             allowed_commands=data.get('allowed_commands', DEFAULT_CONFIG['allowed_commands']),
             providers=providers,
             models=models,
-            history_file=data.get('history_file', DEFAULT_CONFIG['history_file'])
+            history_file=data.get('history_file', DEFAULT_CONFIG['history_file']),
+            history_context_size=data.get('history_context_size', DEFAULT_CONFIG['history_context_size']),
+            available_commands_limit=data.get('available_commands_limit', DEFAULT_CONFIG['available_commands_limit'])
         )
     
     @classmethod
@@ -137,11 +141,13 @@ class Config:
         }
         
         return cls(
-            default_models=['gpt4', 'claude', 'ollama'],
+            default_models=DEFAULT_CONFIG['default_models'],
             allowed_commands=DEFAULT_CONFIG['allowed_commands'],
             providers=providers,
             models=models,
-            history_file=DEFAULT_CONFIG['history_file']
+            history_file=DEFAULT_CONFIG['history_file'],
+            history_context_size=DEFAULT_CONFIG['history_context_size'],
+            available_commands_limit=DEFAULT_CONFIG['available_commands_limit']
         )
     
     def save(self):

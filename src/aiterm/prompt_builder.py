@@ -27,6 +27,7 @@ For each conversation round:
 - Include "context_commands" only if needs_context is true, commands will be executed in order
 - These should be safe info-gathering commands like pwd, ls, cat, echo, grep, find, man
 - Do not provide "suggestions" in this case, do not request more than 3 rounds of context_commands in a row
+- "available_commands" and "command_history" may be available to you, they may or may not be relevant to the current task
 
 For command suggestions:
 - Provide up to 3 relevant command suggestions
@@ -41,7 +42,9 @@ def build_structured_prompt(user_input: str,
                           available_commands: Optional[List[str]] = None,
                           command_history: Optional[Dict[str, List[str]]] = None,
                           exec_results: Optional[Dict[str, str]] = None,
-                          conversation_history: Optional[List[str]] = None) -> str:
+                          conversation_history: Optional[List[str]] = None,
+                          available_commands_limit: int = 2000,
+                          history_context_size: int = 500) -> str:
     """Build a structured prompt for the AI model.
 
     Args:
@@ -71,17 +74,17 @@ def build_structured_prompt(user_input: str,
             cmd for cmd in available_commands
             if not should_ignore_command(cmd)
         ]
-        commands_str = ' '.join(filtered_commands[:2000])  # Limit for context
+        commands_str = ' '.join(filtered_commands[:available_commands_limit])  # Limit for context
         parts.append(f"<available_commands>\n{commands_str}\n</available_commands>")
 
     # Command history
     if command_history:
         history_parts = []
         if 'recent_commands' in command_history:
-            recent = command_history['recent_commands'][:500]
+            recent = command_history['recent_commands'][:history_context_size]
             history_parts.append("Recent commands:\n" + "\n".join(recent))
         if 'command_history' in command_history:
-            older = command_history['command_history'][:500]
+            older = command_history['command_history'][:history_context_size]
             history_parts.append("Frequently used:\n" + "\n".join(older))
 
         if history_parts:
