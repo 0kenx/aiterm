@@ -80,7 +80,7 @@ def get_shell_history(history_size: int = 500) -> Tuple[List[str], List[str]]:
                 parts = line.strip().split(None, 1)
                 if len(parts) > 1 and parts[0].isdigit():
                     all_commands.append(parts[1])
-    except:
+    except Exception:
         pass
     
     # Reverse to get most recent first
