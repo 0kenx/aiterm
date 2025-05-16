@@ -1,4 +1,5 @@
 import json
+import asyncio
 import aiohttp
 from typing import Dict, Any
 from .base import BaseLLMAdapter
@@ -94,7 +95,7 @@ Only request context if truly needed for the specific task.
                     else:
                         error_text = await response.text()
                         raise Exception(f"Ollama API error: {response.status} - {error_text}")
-            except aiohttp.ClientTimeout:
+            except asyncio.TimeoutError:
                 raise Exception("Ollama request timed out")
             except aiohttp.ClientError as e:
                 raise Exception(f"Ollama connection error: {str(e)}")
