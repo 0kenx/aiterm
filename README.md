@@ -16,7 +16,120 @@ AITerm is an AI-powered terminal command assistant that converts natural languag
 
 ## Installation
 
-### Using uv (Recommended)
+### NixOS
+
+#### Using Flakes
+
+Add to your `flake.nix`:
+
+```nix
+{
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    aiterm.url = "github:your-username/aiterm";
+  };
+
+  outputs = { self, nixpkgs, aiterm, ... }: {
+    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+      modules = [
+        ({ pkgs, ... }: {
+          environment.systemPackages = [
+            aiterm.packages.${pkgs.system}.default
+          ];
+        })
+      ];
+    };
+  };
+}
+```
+
+Or use the provided NixOS module:
+
+```nix
+{
+  modules = [
+    aiterm.nixosModules.default
+    {
+      programs.aiterm = {
+        enable = true;
+        defaultConfig = {
+          default_model = "gpt-4o";
+          enforce_json_output = true;
+        };
+      };
+    }
+  ];
+}
+```
+
+#### Direct Installation
+
+```bash
+# Run without installing
+nix run github:your-username/aiterm -- list python files
+
+# Install to user profile
+nix profile install github:your-username/aiterm
+```
+
+### Home Manager
+
+Add to your Home Manager configuration:
+
+```nix
+{ config, pkgs, ... }:
+
+{
+  home.packages = [
+    (pkgs.callPackage (builtins.fetchTarball {
+      url = "https://github.com/your-username/aiterm/archive/main.tar.gz";
+    }) {})
+  ];
+
+  # Optional: manage aiterm config with Home Manager
+  xdg.configFile."aiterm/config.yaml".text = ''
+    enforce_json_output: true
+    default_model: gpt-4o
+
+    providers:
+      openai:
+        api_key: ''${OPENAI_API_KEY}
+      anthropic:
+        api_key: ''${ANTHROPIC_API_KEY}
+
+    models:
+      gpt-4o:
+        provider: openai
+        model: gpt-4o
+        include_path_commands: true
+  '';
+}
+```
+
+Or using flakes in Home Manager:
+
+```nix
+{
+  inputs = {
+    home-manager.url = "github:nix-community/home-manager";
+    aiterm.url = "github:your-username/aiterm";
+  };
+
+  outputs = { self, home-manager, aiterm, ... }: {
+    homeConfigurations.myuser = home-manager.lib.homeManagerConfiguration {
+      modules = [
+        ({ pkgs, ... }: {
+          home.packages = [
+            aiterm.packages.${pkgs.system}.default
+          ];
+        })
+      ];
+    };
+  };
+}
+```
+
+### Using uv (Recommended for Development)
 
 ```bash
 # Clone the repository
