@@ -11,7 +11,7 @@ from .llm.base import CommandSuggestion
 class TUI:
     def __init__(self):
         self.console = Console()
-    
+
     def display_welcome(self):
         """Display welcome message."""
         self.console.print(Panel.fit(
@@ -19,7 +19,7 @@ class TUI:
             "Let AI help you with terminal commands",
             border_style="cyan"
         ))
-    
+
     def display_suggestions(self, suggestions: Union[List[CommandSuggestion], List[Dict]], ) -> tuple[Optional[Union[CommandSuggestion, Dict]], Optional[str]]:
         """Display command suggestions and let user choose.
 
@@ -64,13 +64,13 @@ class TUI:
 
         # User typed something else - continue conversation
         return None, choice
-    
+
     def confirm_execution(self, command: str) -> bool:
         """Ask user to confirm command execution."""
-        self.console.print(f"\n[bold]Command to execute:[/bold]")
+        # self.console.print(f"\n[bold]Command to execute:[/bold]")
         self.console.print(Syntax(command, "bash", theme="monokai", line_numbers=False))
         return Confirm.ask("Execute this command?")
-    
+
     def display_result(self, success: bool, stdout: str, stderr: str):
         """Display command execution result."""
         if success:
@@ -83,7 +83,7 @@ class TUI:
         else:
             self.console.print("\n[red]Error:[/red]")
             self.console.print(stderr or "Command failed")
-    
+
     def display_context_gathering(self, commands: List[str]):
         """Display context gathering status."""
         self.console.print("[dim]Gathering context...[/dim]")
@@ -100,11 +100,11 @@ class TUI:
             if include_history:
                 self.console.print("  [dim]• Command history[/dim]")
             self.console.print("")
-    
+
     def error(self, message: str):
         """Display error message."""
         self.console.print(f"[red]Error:[/red] {message}")
-    
+
     def info(self, message: str):
         """Display info message."""
         self.console.print(f"[dim]{message}[/dim]")

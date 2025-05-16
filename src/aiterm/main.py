@@ -325,6 +325,10 @@ async def process_query(config: Config, tui: TUI, adapter: BaseLLMAdapter, execu
         return await process_query(config, tui, adapter, executor, model_name,
                                  continuation, conversation_history)
 
+    # If user quit (selected is None and continuation is None), return special value
+    if selected is None and continuation is None:
+        return 'QUIT'
+
     return selected
 
 
@@ -376,7 +380,10 @@ def main(model: Optional[str], description):
                     process_query(config, tui, adapter, executor, model_name, description_text)
                 )
 
-                if selected:
+                if selected == 'QUIT':
+                    # User explicitly quit, exit cleanly
+                    sys.exit(0)
+                elif selected:
                     # Model worked, use it for execution
                     successful_model = model_name
                     successful_adapter = adapter
@@ -401,7 +408,10 @@ def main(model: Optional[str], description):
 
     # Process the selection from the successful model
     try:
-        if selected:
+        if selected == 'QUIT':
+            # User quit, exit cleanly
+            sys.exit(0)
+        elif selected:
             # Extract command from selection
             if isinstance(selected, dict):
                 command = selected.get('command', '')
