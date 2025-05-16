@@ -59,7 +59,7 @@
           
           meta = with pkgs.lib; {
             description = "AI-powered terminal command assistant";
-            homepage = "https://github.com/your-username/aiterm";
+            homepage = "https://github.com/0kenx/aiterm";
             license = licenses.mit;
             maintainers = with maintainers; [ ];
             platforms = platforms.unix;

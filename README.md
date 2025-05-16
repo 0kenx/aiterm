@@ -26,7 +26,7 @@ Add to your `flake.nix`:
 {
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    aiterm.url = "github:your-username/aiterm";
+    aiterm.url = "github:0kenx/aiterm";
   };
 
   outputs = { self, nixpkgs, aiterm, ... }: {
@@ -66,10 +66,10 @@ Or use the provided NixOS module:
 
 ```bash
 # Run without installing
-nix run github:your-username/aiterm -- list python files
+nix run github:0kenx/aiterm -- list python files
 
 # Install to user profile
-nix profile install github:your-username/aiterm
+nix profile install github:0kenx/aiterm
 ```
 
 ### Home Manager
@@ -82,7 +82,7 @@ Add to your Home Manager configuration:
 {
   home.packages = [
     (pkgs.callPackage (builtins.fetchTarball {
-      url = "https://github.com/your-username/aiterm/archive/main.tar.gz";
+      url = "https://github.com/0kenx/aiterm/archive/main.tar.gz";
     }) {})
   ];
 
@@ -112,7 +112,7 @@ Or using flakes in Home Manager:
 {
   inputs = {
     home-manager.url = "github:nix-community/home-manager";
-    aiterm.url = "github:your-username/aiterm";
+    aiterm.url = "github:0kenx/aiterm";
   };
 
   outputs = { self, home-manager, aiterm, ... }: {
@@ -133,7 +133,7 @@ Or using flakes in Home Manager:
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/aiterm
+git clone https://github.com/0kenx/aiterm
 cd aiterm
 
 # Run directly with uv
