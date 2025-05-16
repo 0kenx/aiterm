@@ -37,17 +37,17 @@ class AnthropicAdapter(BaseLLMAdapter):
             "max_tokens": self.max_tokens,
         }
 
-        # Add temperature if specified
-        if temperature is not None:
-            params["temperature"] = temperature
-        elif self.temperature is not None:
+        # Add all configured parameters
+        if self.temperature is not None:
             params["temperature"] = self.temperature
-
-        # Add optional parameters only if they're set
         if self.top_p is not None:
             params["top_p"] = self.top_p
         if self.top_k is not None:
             params["top_k"] = self.top_k
+
+        # Override temperature if provided as parameter
+        if temperature is not None:
+            params["temperature"] = temperature
         
         # Claude doesn't have built-in JSON mode, so we add instructions
         params["messages"][0]["content"] = f"{prompt}\n\nIMPORTANT: Respond with valid JSON only."

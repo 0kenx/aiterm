@@ -37,20 +37,16 @@ class OpenAIAdapter(BaseLLMAdapter):
             {"role": "system", "content": "You are a helpful terminal assistant. Always respond with valid JSON containing command suggestions."},
             {"role": "user", "content": prompt}
         ]
-        
+
         # Build parameters
         params = {
             "model": self.model,
             "messages": messages,
         }
 
-        # Add temperature if specified
-        if temperature is not None:
-            params["temperature"] = temperature
-        elif self.temperature is not None:
+        # Add all configured parameters
+        if self.temperature is not None:
             params["temperature"] = self.temperature
-
-        # Add optional parameters only if they're set
         if self.max_tokens is not None:
             params["max_tokens"] = self.max_tokens
         if self.top_p is not None:
@@ -61,6 +57,10 @@ class OpenAIAdapter(BaseLLMAdapter):
             params["presence_penalty"] = self.presence_penalty
         if self.seed is not None:
             params["seed"] = self.seed
+
+        # Override temperature if provided as parameter
+        if temperature is not None:
+            params["temperature"] = temperature
         
         # Check if model supports JSON mode
         if self.model in ['gpt-4o', 'gpt-4', 'gpt-3.5-turbo']:

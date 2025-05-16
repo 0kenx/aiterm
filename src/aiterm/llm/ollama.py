@@ -56,25 +56,28 @@ Only request context if truly needed for the specific task.
             "stream": False
         }
 
-        # Add temperature if specified
-        if temperature is not None:
-            params["temperature"] = temperature
-        elif self.temperature is not None:
-            params["temperature"] = self.temperature
-        
-        # Add optional parameters
+        # Build options dictionary from configured parameters
+        options = {}
+
+        # Add all configured options
+        if self.temperature is not None:
+            options["temperature"] = self.temperature
         if self.top_p is not None:
-            params["options"] = params.get("options", {})
-            params["options"]["top_p"] = self.top_p
+            options["top_p"] = self.top_p
         if self.top_k is not None:
-            params["options"] = params.get("options", {})
-            params["options"]["top_k"] = self.top_k
+            options["top_k"] = self.top_k
         if self.num_ctx is not None:
-            params["options"] = params.get("options", {})
-            params["options"]["num_ctx"] = self.num_ctx
+            options["num_ctx"] = self.num_ctx
         if self.seed is not None:
-            params["options"] = params.get("options", {})
-            params["options"]["seed"] = self.seed
+            options["seed"] = self.seed
+
+        # Add temperature override if provided
+        if temperature is not None:
+            options["temperature"] = temperature
+
+        # Add options to params if any exist
+        if options:
+            params["options"] = options
         
         async with aiohttp.ClientSession() as session:
             try:
