@@ -13,11 +13,11 @@ class OllamaAdapter(BaseLLMAdapter):
         self.base_url = config.get('base_url', 'http://localhost:11434')
         self.model = config.get('model', 'mistral')
         # Ollama-specific options
-        self.temperature = config.get('temperature', 0.7)
-        self.top_p = config.get('top_p', None)
-        self.top_k = config.get('top_k', None)
-        self.num_ctx = config.get('num_ctx', None)
-        self.seed = config.get('seed', None)
+        self.temperature = config.get('temperature')  # No default - use None if not specified
+        self.top_p = config.get('top_p')
+        self.top_k = config.get('top_k')
+        self.num_ctx = config.get('num_ctx')
+        self.seed = config.get('seed')
     
     async def needs_context(self, query: str) -> tuple[bool, list[str]]:
         """Determine if we need to gather context for this query."""
@@ -41,7 +41,7 @@ Only request context if truly needed for the specific task.
             response = await self._make_request(check_prompt, temperature=0.1)
             data = json.loads(response)
             return data.get('needs_context', False), data.get('commands', [])
-        except:
+        except Exception:
             # If we can't parse, assume no context needed
             return False, []
     
@@ -53,9 +53,14 @@ Only request context if truly needed for the specific task.
         params = {
             "model": self.model,
             "prompt": prompt,
-            "temperature": temperature or self.temperature,
             "stream": False
         }
+
+        # Add temperature if specified
+        if temperature is not None:
+            params["temperature"] = temperature
+        elif self.temperature is not None:
+            params["temperature"] = self.temperature
         
         # Add optional parameters
         if self.top_p is not None:
