@@ -5,7 +5,6 @@ from .base import BaseLLMAdapter
 from .ollama import OllamaAdapter
 from .openai import OpenAIAdapter
 from .anthropic import AnthropicAdapter
-from .test import TestAdapter
 
 
 # Map provider names to adapter classes
@@ -13,21 +12,27 @@ PROVIDER_ADAPTERS = {
     'ollama': OllamaAdapter,
     'openai': OpenAIAdapter,
     'anthropic': AnthropicAdapter,
-    'test': TestAdapter
 }
 
 
 def create_adapter(model_name: str, config: Config) -> Optional[BaseLLMAdapter]:
     """Create an LLM adapter for the specified model."""
+
     model_config = config.get_model_config(model_name)
     if not model_config:
-        print(f"No config found for model: {model_name}")
-        print(f"Available models: {list(config.models.keys())}")
+        print(f"Error: Model '{model_name}' is not configured.")
+        available = list(config.models.keys())
+        if available:
+            print(f"Available models: {', '.join(available)}")
+        else:
+            print("No models configured. Please check your config.yaml")
         return None
     
     # Get the adapter class for this provider
     adapter_class = PROVIDER_ADAPTERS.get(model_config.provider)
     if not adapter_class:
+        print(f"Error: Unknown provider '{model_config.provider}' for model '{model_name}'")
+        print(f"Available providers: {', '.join(PROVIDER_ADAPTERS.keys())}")
         return None
     
     # Get provider config

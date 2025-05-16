@@ -19,15 +19,6 @@ class OllamaAdapter(BaseLLMAdapter):
         self.num_ctx = config.get('num_ctx', None)
         self.seed = config.get('seed', None)
     
-    def test_connection(self) -> bool:
-        """Test if Ollama is running."""
-        import requests
-        try:
-            resp = requests.get(f"{self.base_url}/api/tags", timeout=0.5)
-            return resp.status_code == 200
-        except:
-            return False
-    
     async def needs_context(self, query: str) -> tuple[bool, list[str]]:
         """Determine if we need to gather context for this query."""
         # For local models, we'll do a quick context check

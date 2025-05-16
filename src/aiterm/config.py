@@ -105,7 +105,6 @@ class Config:
             'ollama': ProviderConfig(base_url='http://localhost:11434'),
             'openai': ProviderConfig(),
             'anthropic': ProviderConfig(),
-            'test': ProviderConfig()
         }
         
         models = {
@@ -135,17 +134,10 @@ class Config:
                 include_history_context=True,
                 history_context_size=500
             ),
-            'test': ModelConfig(
-                provider='test',
-                model='test-model',
-                include_path_commands=True,
-                include_history_context=True,
-                history_context_size=200
-            )
         }
         
         return cls(
-            default_models=['test', 'gpt4', 'claude', 'ollama'],
+            default_models=['gpt4', 'claude', 'ollama'],
             allowed_commands=DEFAULT_CONFIG['allowed_commands'],
             providers=providers,
             models=models,

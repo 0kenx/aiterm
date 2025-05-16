@@ -12,6 +12,8 @@ dependencies = [
     "requests>=2.32.3",
     "rich>=14.0.0",
     "aiohttp>=3.11.18",
+    "mmh3>=5.1.0",
+    "bitarray>=3.4.1",
 ]
 
 [project.scripts]
@@ -23,3 +25,6 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools]
 packages.find.where = ["src"]
+
+[tool.setuptools.package-data]
+aiterm = ["ignore_commands.txt", "ignore_commands_bloom.pkl"]

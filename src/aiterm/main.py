@@ -3,7 +3,8 @@ import click
 import sys
 import json
 import re
-from typing import Optional, List, Union
+import os
+from typing import Optional, List, Union, Tuple
 from .config import Config, ModelConfig
 from .tui import TUI
 from .executor import CommandExecutor
@@ -12,34 +13,117 @@ from .context_gather import build_extended_context, get_path_commands, get_shell
 from .prompt_builder import build_structured_prompt
 from .llm.factory import create_adapter
 
-def find_working_model(config: Config, tui: TUI) -> Optional[tuple[str, BaseLLMAdapter]]:
-    """Try models in priority order until one works."""
-    errors = []
-    
+def is_valid_api_key(api_key: Optional[str]) -> bool:
+    """Check if an API key appears to be valid (not a placeholder)."""
+    if not api_key:
+        return False
+
+    # Remove whitespace
+    api_key = api_key.strip()
+
+    # Check for placeholder patterns
+    placeholders = [
+        'your_api_key_here',
+        'your-api-key',
+        'YOUR_API_KEY',
+        '<your-api-key>',
+        'sk-...',
+        'sk-ant-...',
+        '...',
+        'xxx',
+        'TODO',
+        '<YOUR_API_KEY>',
+        '{YOUR_API_KEY}',
+        '${YOUR_API_KEY}',
+        'your_key_here',
+        'placeholder',
+        'test',
+        'demo'
+    ]
+
+    # Check if it's a placeholder
+    if api_key.lower() in [p.lower() for p in placeholders]:
+        return False
+
+    # Check for very short keys
+    if len(api_key) < 20:
+        return False
+
+    # Check for basic patterns (very lenient)
+    # OpenAI keys usually start with sk- followed by alphanumeric
+    # Anthropic keys usually start with sk-ant- followed by alphanumeric
+    # But we'll be lenient and just check for reasonable length and characters
+    if not re.match(r'^[a-zA-Z0-9_\-]{20,}$', api_key):
+        return False
+
+    return True
+
+
+def build_model_list(config: Config, user_model: Optional[str] = None) -> List[Tuple[str, str]]:
+    """Build a prioritized list of models with valid API keys.
+
+    Returns list of (model_name, api_key) tuples.
+    Priority order:
+    1. User-specified model (if any)
+    2. Models from default_models list in config
+
+    API key priority for each model:
+    1. Model-specific api_key from config
+    2. Provider-specific api_key from config
+    3. Environment variable
+    """
+    models_to_try = []
+    seen_models = set()
+
+    # Helper function to get API key for a model
+    def get_api_key_for_model(model_name: str) -> Optional[str]:
+        model_config = config.get_model_config(model_name)
+        if not model_config:
+            return None
+
+        # 1. Check model-specific API key
+        if model_config.api_key and is_valid_api_key(model_config.api_key):
+            return model_config.api_key
+
+        # 2. Check provider API key
+        provider_config = config.get_provider_config(model_config.provider)
+        if provider_config and provider_config.api_key and is_valid_api_key(provider_config.api_key):
+            return provider_config.api_key
+
+        # 3. Check environment variables
+        env_var_map = {
+            'openai': 'OPENAI_API_KEY',
+            'anthropic': 'ANTHROPIC_API_KEY'
+        }
+
+        env_var = env_var_map.get(model_config.provider)
+        if env_var:
+            env_key = os.environ.get(env_var)
+            if is_valid_api_key(env_key):
+                return env_key
+
+        # Special case: Ollama doesn't need an API key
+        if model_config.provider == 'ollama':
+            return 'ollama-local'
+
+        return None
+
+    # Add user-specified model first if provided
+    if user_model:
+        api_key = get_api_key_for_model(user_model)
+        if api_key:
+            models_to_try.append((user_model, api_key))
+            seen_models.add(user_model)
+
+    # Add models from default list
     for model_name in config.default_models:
-        try:
-            adapter = create_adapter(model_name, config)
-            if adapter:
-                # For Ollama, try a quick test to see if it's running
-                if hasattr(adapter, 'test_connection'):
-                    if adapter.test_connection():
-                        return model_name, adapter
-                    else:
-                        errors.append(f"{model_name}: Connection failed")
-                        continue
-                else:
-                    return model_name, adapter
-        except Exception as e:
-            errors.append(f"{model_name}: {str(e)}")
-    
-    # Show all errors before entering setup mode
-    if errors:
-        tui.console.print("\n[yellow]Tried models:[/yellow]")
-        for error in errors:
-            tui.console.print(f"  [dim]• {error}[/dim]")
-    
-    # No models available, enter setup mode
-    return None
+        if model_name not in seen_models:
+            api_key = get_api_key_for_model(model_name)
+            if api_key:
+                models_to_try.append((model_name, api_key))
+                seen_models.add(model_name)
+
+    return models_to_try
 
 
 def setup_mode(config: Config, tui: TUI):
@@ -51,15 +135,15 @@ def setup_mode(config: Config, tui: TUI):
     tui.console.print("2. Config file: ~/.config/aiterm/config.yaml")
     tui.console.print("\nExample configuration:")
     tui.console.print("[yellow]default_models: \\[gpt4, claude, ollama\\][/yellow]")
-    tui.console.print("[yellow]providers:")
-    tui.console.print("  openai:")
-    tui.console.print("    api_key: sk-...")
-    tui.console.print("  anthropic:")
-    tui.console.print("    api_key: sk-ant-...")
-    tui.console.print("models:")
-    tui.console.print("  gpt4:")
-    tui.console.print("    provider: openai")
-    tui.console.print("    model: gpt-4o[/yellow]")
+    tui.console.print("[yellow]providers:[/yellow]")
+    tui.console.print("[yellow]  openai:[/yellow]")
+    tui.console.print("[yellow]    api_key: sk-...[/yellow]")
+    tui.console.print("[yellow]  anthropic:[/yellow]")
+    tui.console.print("[yellow]    api_key: sk-ant-...[/yellow]")
+    tui.console.print("[yellow]models:[/yellow]")
+    tui.console.print("[yellow]  gpt4:[/yellow]")
+    tui.console.print("[yellow]    provider: openai[/yellow]")
+    tui.console.print("[yellow]    model: gpt-4o[/yellow]")
     tui.console.print("\nFor Ollama, make sure to start the service with: [cyan]ollama serve[/cyan]")
     sys.exit(1)
 
@@ -74,9 +158,9 @@ def parse_json_response(response: str) -> List[dict]:
         else:
             # Try to find any JSON object in the response
             json_text = response
-        
+
         data = json.loads(json_text)
-        
+
         # Handle different response formats
         if isinstance(data, dict):
             if 'suggestions' in data:
@@ -90,7 +174,7 @@ def parse_json_response(response: str) -> List[dict]:
             return data
         else:
             return []
-    
+
     except (json.JSONDecodeError, AttributeError):
         # Fallback to text parsing
         return parse_text_response(response)
@@ -99,14 +183,14 @@ def parse_json_response(response: str) -> List[dict]:
 def parse_text_response(response: str) -> List[dict]:
     """Fallback parser for non-JSON responses."""
     commands = []
-    
+
     # Look for common patterns
     patterns = [
         r'`([^`]+)`',  # Backticks
         r'```(?:bash|sh)?\n?([^`]+)```',  # Code blocks
         r'^\s*\$?\s*(.+)$',  # Lines starting with $ or just commands
     ]
-    
+
     for pattern in patterns:
         matches = re.findall(pattern, response, re.MULTILINE)
         for match in matches:
@@ -116,7 +200,7 @@ def parse_text_response(response: str) -> List[dict]:
                     'command': cmd,
                     'description': 'Command found in response'
                 })
-    
+
     # Deduplicate and limit
     seen = set()
     deduped = []
@@ -124,26 +208,26 @@ def parse_text_response(response: str) -> List[dict]:
         if cmd['command'] not in seen:
             seen.add(cmd['command'])
             deduped.append(cmd)
-    
+
     return deduped[:5]
 
 
-async def process_query(config: Config, tui: TUI, adapter: BaseLLMAdapter, executor: CommandExecutor, 
+async def process_query(config: Config, tui: TUI, adapter: BaseLLMAdapter, executor: CommandExecutor,
                        model_name: str, query: str, conversation_history: List[dict] = None):
     """Process a single query with the LLM."""
-    
+
     if conversation_history is None:
         conversation_history = []
-    
+
     # Get model config
     model_config = config.get_model_config(model_name)
     if not model_config:
         tui.error(f"Model {model_name} not found in configuration")
         return None
-    
+
     # Check if we need additional context
     context_info = {}
-    
+
     # Gather available commands if configured
     available_commands = []
     if model_config.include_path_commands:
@@ -155,7 +239,7 @@ async def process_query(config: Config, tui: TUI, adapter: BaseLLMAdapter, execu
             context_info['has_path_commands'] = False
     else:
         context_info['has_path_commands'] = False
-    
+
     # Gather command history if configured
     command_history = []
     if model_config.include_history_context:
@@ -173,7 +257,7 @@ async def process_query(config: Config, tui: TUI, adapter: BaseLLMAdapter, execu
             context_info['has_history'] = False
     else:
         context_info['has_history'] = False
-    
+
     # Check if we need dynamic context
     extra_context = None
     exec_results = []
@@ -191,10 +275,10 @@ async def process_query(config: Config, tui: TUI, adapter: BaseLLMAdapter, execu
                 context_info['context_commands'] = context_commands
     except Exception as e:
         tui.warning(f"Context gathering failed: {e}")
-    
+
     # Display compact status
     tui.display_status(model_name, context_info)
-    
+
     # Build structured prompt
     # Convert conversation history to the expected format
     conv_history = None
@@ -214,17 +298,17 @@ async def process_query(config: Config, tui: TUI, adapter: BaseLLMAdapter, execu
         exec_results={item['command']: item['output'] for item in exec_results} if exec_results else None,
         conversation_history=conv_history
     )
-    
+
     # Generate response
-    tui.status(f"Asking {model_name} for suggestions...")
+    # tui.status(f"Asking {model_name} for suggestions...")
     response = await adapter.generate(prompt)
-    
+
     # Parse response
     suggestions = parse_json_response(response)
-    
+
     # Display suggestions and let user choose
     selected, continuation = tui.display_suggestions(suggestions)
-    
+
     if continuation:
         # User wants to continue the conversation
         # Add current interaction to history
@@ -233,14 +317,14 @@ async def process_query(config: Config, tui: TUI, adapter: BaseLLMAdapter, execu
             'content': query
         })
         conversation_history.append({
-            'role': 'assistant', 
+            'role': 'assistant',
             'content': json.dumps({'suggestions': suggestions})
         })
-        
+
         # Process continuation
-        return await process_query(config, tui, adapter, executor, model_name, 
+        return await process_query(config, tui, adapter, executor, model_name,
                                  continuation, conversation_history)
-    
+
     return selected
 
 
@@ -251,55 +335,79 @@ def main(model: Optional[str], description):
     """AI Terminal Assistant - Let AI help you with terminal commands."""
     # Load configuration
     config = Config.load()
-    
+
     # Initialize TUI
     tui = TUI()
-    
+
     # Show welcome if no description provided
     if not description:
         tui.display_welcome()
         tui.error("Please provide a description of what you want to do")
         sys.exit(1)
-    
+
     # Join description words
     description_text = ' '.join(description)
-    
-    # Determine which model to use
-    if model:
-        # User specified a model
-        adapter = create_adapter(model, config)
-        if not adapter:
-            tui.error(f"Failed to initialize model: {model}")
-            tui.error(f"Check if 'test' is configured in your config.yaml")
-            import traceback
-            traceback.print_exc()
-            setup_mode(config, tui)
-        model_to_use = model
-    else:
-        # Try models in priority order
-        result = find_working_model(config, tui)
-        if not result:
-            setup_mode(config, tui)
-        model_to_use, adapter = result
-    
+
+    # Build the list of models to try
+    models_to_try = build_model_list(config, model)
+
+    if not models_to_try:
+        tui.error("No models with valid API keys found")
+        setup_mode(config, tui)
+        return
+
+    # Try each model until one succeeds
+    successful_model = None
+    successful_adapter = None
+    errors = []
+
+    for model_name, api_key in models_to_try:
+        try:
+            # Create adapter
+            adapter = create_adapter(model_name, config)
+            if adapter:
+                # Try to get a response to verify it's working
+                executor = CommandExecutor(config)
+                import asyncio
+                loop = asyncio.get_event_loop()
+
+                # Quick test query
+                selected = loop.run_until_complete(
+                    process_query(config, tui, adapter, executor, model_name, description_text)
+                )
+
+                if selected:
+                    # Model worked, use it for execution
+                    successful_model = model_name
+                    successful_adapter = adapter
+                    break
+                else:
+                    errors.append(f"{model_name}: No response generated")
+        except Exception as e:
+            errors.append(f"{model_name}: {str(e)}")
+            continue
+
+    # If no model worked, show errors and enter setup mode
+    if not successful_model:
+        tui.console.print("\n[yellow]Tried models:[/yellow]")
+        for error in errors:
+            tui.console.print(f"  [dim]• {error}[/dim]")
+        setup_mode(config, tui)
+        return
+
+    # Use the successful model
+    model_to_use = successful_model
+    adapter = successful_adapter
+
+    # Process the selection from the successful model
     try:
-        # Initialize executor
-        executor = CommandExecutor(config)
-        
-        # Run the async query processor
-        import asyncio
-        loop = asyncio.get_event_loop()
-        selected = loop.run_until_complete(
-            process_query(config, tui, adapter, executor, model_to_use, description_text)
-        )
-        
         if selected:
             # Extract command from selection
             if isinstance(selected, dict):
                 command = selected.get('command', '')
             else:
                 command = str(selected)
-            
+
             # Check if command is in allow-list or needs confirmation
             if executor.is_command_allowed(command):
                 # Execute directly
@@ -312,7 +420,7 @@ def main(model: Optional[str], description):
                     tui.display_result(success, stdout, stderr)
                 else:
                     tui.info("Command execution cancelled")
-    
+
     except Exception as e:
         tui.error(str(e))
         sys.exit(1)
