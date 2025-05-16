@@ -11,8 +11,8 @@ class CustomInstall(install):
         install.run(self)
 
         # Build and bloom filter
-        print("Building bloom filter...")
-        subprocess.check_call([sys.executable, "build_bloom_filter.py"])
+        #print("Building bloom filter...")
+        #subprocess.check_call([sys.executable, "build_bloom_filter.py"])
 
 
 setup(
