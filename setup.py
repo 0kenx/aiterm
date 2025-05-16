@@ -10,10 +10,7 @@ class CustomInstall(install):
         # Run the original install
         install.run(self)
 
-        # Build ignore commands and bloom filter
-        print("Building ignore commands list...")
-        subprocess.check_call([sys.executable, "build_ignore_commands.py"])
-
+        # Build and bloom filter
         print("Building bloom filter...")
         subprocess.check_call([sys.executable, "build_bloom_filter.py"])
 
