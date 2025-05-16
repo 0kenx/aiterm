@@ -18,6 +18,9 @@ class OllamaAdapter(BaseLLMAdapter):
         self.top_k = config.get('top_k')
         self.num_ctx = config.get('num_ctx')
         self.seed = config.get('seed')
+
+        # Debug log
+        print(f"[DEBUG] Ollama adapter initialized with base_url={self.base_url}, model={self.model}")
     
     async def needs_context(self, query: str) -> tuple[bool, list[str]]:
         """Determine if we need to gather context for this query."""
@@ -41,8 +44,11 @@ Only request context if truly needed for the specific task.
             response = await self._make_request(check_prompt, temperature=0.1)
             data = json.loads(response)
             return data.get('needs_context', False), data.get('commands', [])
-        except Exception:
+        except Exception as e:
             # If we can't parse, assume no context needed
+            print(f"[DEBUG] Ollama needs_context error: {type(e).__name__}: {str(e)}")
+            import traceback
+            traceback.print_exc()
             return False, []
     
     async def _make_request(self, prompt: str, temperature: float = None) -> str:

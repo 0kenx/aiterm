@@ -284,6 +284,13 @@ async def process_query(config: Config, tui: TUI, adapter: BaseLLMAdapter, execu
                 context_info['context_commands'] = context_commands
     except Exception as e:
         tui.warning(f"Context gathering failed: {e}")
+        if debug:
+            tui.console.print(f"[red]Debug: Context gathering error[/red]")
+            tui.console.print(f"[red]Error type: {type(e).__name__}[/red]")
+            import traceback
+            tb_lines = traceback.format_exception(type(e), e, e.__traceback__)
+            for line in tb_lines:
+                tui.console.print(f"[red]{line.rstrip()}[/red]")
 
     # Display compact status
     tui.display_status(model_name, context_info)
@@ -405,9 +412,18 @@ def main(model: Optional[str], debug: bool, description):
 
     for model_name, api_key in models_to_try:
         try:
+            # Debug: Log adapter creation attempt
+            if debug:
+                tui.console.print(f"\n[cyan]Debug: Creating adapter for {model_name}[/cyan]")
+
             # Create adapter
             adapter = create_adapter(model_name, config)
+
             if adapter:
+                # Debug: Log adapter creation success
+                if debug:
+                    tui.console.print(f"[green]Debug: Adapter created successfully[/green]")
+
                 # Try to get a response to verify it's working
                 executor = CommandExecutor(config)
                 import asyncio
@@ -428,8 +444,29 @@ def main(model: Optional[str], debug: bool, description):
                     break
                 else:
                     errors.append(f"{model_name}: No response generated")
+            else:
+                errors.append(f"{model_name}: Failed to create adapter")
+
         except Exception as e:
-            errors.append(f"{model_name}: {str(e)}")
+            error_msg = f"{model_name}: {str(e)}"
+            errors.append(error_msg)
+
+            # Debug: Show full traceback
+            if debug:
+                tui.console.print(f"\n[red]Debug: Error details for {model_name}[/red]")
+                tui.console.print(f"[red]Error type: {type(e).__name__}[/red]")
+                tui.console.print(f"[red]Error message: {str(e)}[/red]")
+                import traceback
+                tb_lines = traceback.format_exception(type(e), e, e.__traceback__)
+                for line in tb_lines:
+                    tui.console.print(f"[red]{line.rstrip()}[/red]")
+
+                # Special check for the specific error message
+                if "catching classes that do not inherit from BaseException" in str(e):
+                    tui.console.print(f"\n[yellow]Note: This error usually indicates a syntax issue or bare except clause[/yellow]")
+                    tui.console.print(f"[yellow]But all except clauses in the code have been fixed to use 'except Exception:'[/yellow]")
+                    tui.console.print(f"[yellow]The error might be coming from a dependency or the Python interpreter itself[/yellow]")
+
             continue
 
     # If no model worked, show errors and enter setup mode

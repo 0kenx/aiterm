@@ -62,6 +62,8 @@ def create_adapter(model_name: str, config: Config) -> Optional[BaseLLMAdapter]:
         return adapter_class(adapter_config)
     except Exception as e:
         print(f"Failed to create adapter for {model_name}: {e}")
+        print(f"Adapter class: {adapter_class}")
+        print(f"Adapter config: {adapter_config}")
         import traceback
         traceback.print_exc()
-        return None
+        raise  # Re-raise to capture in main
